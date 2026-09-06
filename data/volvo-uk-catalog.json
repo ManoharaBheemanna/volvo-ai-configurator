@@ -1,0 +1,22 @@
+{
+  "dataset": "Volvo Cars UK public catalogue snapshot",
+  "market": "UK",
+  "currency": "GBP",
+  "capturedAt": "2026-09-05",
+  "source": "https://www.volvocars.com/uk/",
+  "usage": "Use this local snapshot first. Revalidate price, availability, configuration compatibility and finance through Volvo systems before quoting or ordering.",
+  "models": [
+    {"id":"ex30","name":"EX30","type":"Electric SUV","price":33060,"seats":5,"rangeMiles":209.4,"batteryKwh":51,"chargingSpeedKw":150,"sourceUrl":"https://www.volvocars.com/uk/cars/ex30-electric/specifications/"},
+    {"id":"xc40","name":"XC40","type":"Mild hybrid SUV","price":32860,"seats":5,"rangeMiles":null,"batteryKwh":null,"chargingSpeedKw":null,"sourceUrl":"https://www.volvocars.com/uk/"},
+    {"id":"ex40","name":"EX40","type":"Electric SUV","price":42360,"seats":5,"rangeMiles":356,"batteryKwh":82,"chargingSpeedKw":200,"sourceUrl":"https://www.volvocars.com/uk/cars/ex40-electric/specifications/"},
+    {"id":"ec40","name":"EC40","type":"Electric crossover","price":44860,"seats":5,"rangeMiles":300.1,"batteryKwh":70,"chargingSpeedKw":200,"sourceUrl":"https://www.volvocars.com/uk/cars/ec40-electric/specifications/"},
+    {"id":"v60","name":"V60","type":"Mild hybrid estate","price":45210,"seats":5,"rangeMiles":null,"batteryKwh":null,"chargingSpeedKw":null,"sourceUrl":"https://www.volvocars.com/uk/"},
+    {"id":"xc60","name":"XC60","type":"Mild hybrid SUV","price":49860,"seats":5,"rangeMiles":null,"batteryKwh":null,"chargingSpeedKw":null,"sourceUrl":"https://www.volvocars.com/uk/"},
+    {"id":"xc60-hybrid","name":"XC60","type":"Plug-in hybrid SUV","price":53265,"seats":5,"rangeMiles":47.2,"batteryKwh":19,"chargingSpeedKw":null,"sourceUrl":"https://www.volvocars.com/uk/cars/xc60-hybrid/specifications/"},
+    {"id":"ex60","name":"EX60","type":"Electric SUV","price":56860,"seats":5,"rangeMiles":379.7,"batteryKwh":83,"chargingSpeedKw":350,"sourceUrl":"https://www.volvocars.com/uk/cars/ex60-electric/specifications/"},
+    {"id":"es90","name":"ES90","type":"Electric saloon","price":65060,"seats":5,"rangeMiles":412.6,"batteryKwh":92,"chargingSpeedKw":350,"sourceUrl":"https://www.volvocars.com/uk/cars/es90-electric/specifications/"},
+    {"id":"xc90","name":"XC90","type":"Mild hybrid SUV","price":66270,"seats":7,"rangeMiles":null,"batteryKwh":null,"chargingSpeedKw":null,"sourceUrl":"https://www.volvocars.com/uk/"},
+    {"id":"xc90-hybrid","name":"XC90","type":"Plug-in hybrid SUV","price":68765,"seats":7,"rangeMiles":null,"batteryKwh":null,"chargingSpeedKw":null,"sourceUrl":"https://www.volvocars.com/uk/"},
+    {"id":"ex90","name":"EX90","type":"Electric SUV","price":73160,"seats":7,"rangeMiles":351.1,"batteryKwh":92,"chargingSpeedKw":350,"sourceUrl":"https://www.volvocars.com/uk/cars/ex90-electric/specifications/"}
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "dataset": "Volvo Cars Sweden configurator seed",
+  "market": "SE",
+  "language": "sv-SE",
+  "currency": "SEK",
+  "scraped_at": "2026-08-21",
+  "source": "https://www.volvocars.com/se/build/",
+  "usage": "A product-catalogue seed for an assistant. Revalidate price, availability, and compatibility against Volvo's live configurator before quoting or ordering.",
+  "selection_order": ["version", "trim", "powertrain", "theme", "paint", "options", "wheels", "interior", "winter_wheels"],
+  "models": [
+    {
+      "id": "ex30-electric", "name": "EX30", "body_style": "SUV", "propulsion": "BEV", "from_price_sek": 429000, "delivery": "5-6 months",
+      "versions": ["EX30", "EX30 Black Edition", "EX30 Cross Country"],
+      "trims": [{"name":"Core","price_sek":429000},{"name":"Plus","price_sek":457000},{"name":"Ultra","price_sek":559000}],
+      "powertrains": [{"name":"P5 Electric","drive":"RWD","range_km_wltp":337,"price_delta_sek":0},{"name":"P5 Long Range Electric","drive":"RWD","price_delta_sek":55000}],
+      "paint": [{"name":"Cloud Blue","price_sek":0},{"name":"Onyx Black","price_sek":6900},{"name":"Crystal White","price_sek":6900},{"name":"Denim Blue","price_sek":6900},{"name":"Vapour Grey","price_sek":6900},{"name":"Sand Dune","price_sek":6900}],
+      "options": [{"name":"Tinted rear windows","price_sek":4900}],
+      "wheels": ["18-inch 5-spoke silver/glossy black","19-inch 5-spoke glossy black diamond cut"],
+      "interiors": ["Indigo interior"]
+    },
+    {
+      "id": "ex40-electric", "name": "EX40", "body_style": "SUV", "propulsion": "BEV", "from_price_sek":529900,
+      "versions": ["EX40", "EX40 Black Edition"],
+      "trims": [{"name":"Core Special Edition","price_sek":529900},{"name":"Plus Special Edition","price_sek":549900},{"name":"Ultra Special Edition","price_sek":599900}],
+      "powertrains": [{"name":"Single Motor","drive":"RWD","range_km_wltp":477,"price_delta_sek":0}],
+      "paint": [{"name":"Ice White","price_sek":0},{"name":"Onyx Black","price_sek":7900},{"name":"Crystal White","price_sek":7900},{"name":"Denim Blue","price_sek":7900},{"name":"Vapour Grey","price_sek":7900},{"name":"Aurora Silver","price_sek":7900},{"name":"Sand Dune","price_sek":7900},{"name":"Cloud Blue","price_sek":7900},{"name":"Forest Lake","price_sek":7900}],
+      "options": [{"name":"Tinted rear windows","price_sek":4900}],
+      "wheels": ["19-inch 5-double spoke glossy silver","19-inch 5-spoke glossy black diamond cut","20-inch 5-spoke black diamond cut"],
+      "interiors": ["Connect suede textile/Microtech Charcoal","Fusion Microtech/textile Charcoal","Fusion Microtech/textile Dawn","City Canvas textile Charcoal","Tailored Wool Blend Midnight Zinc"]
+    },
+    {
+      "id": "ec40-electric", "name": "EC40", "body_style": "Crossover", "propulsion": "BEV", "from_price_sek":529900,
+      "notes": ["Live page exposes the standard design dimensions: version, trim, motor, paint, equipment, wheels, interior, winter wheels. Enumerate conditional option IDs from the live API before production use."]
+    },
+    {
+      "id": "ex60-electric", "name": "EX60", "body_style": "SUV", "propulsion": "BEV", "from_price_sek":689000,
+      "variants": [
+        {"powertrain":"P6","trim":"Plus","drive":"RWD","range_km_wltp":611,"from_price_sek":689000},
+        {"powertrain":"P10","trim":"Plus","drive":"AWD","range_km_wltp":660,"from_price_sek":729000},
+        {"powertrain":"P6","trim":"Ultra","drive":"RWD","range_km_wltp":600,"from_price_sek":769000},
+        {"powertrain":"P12","trim":"Plus","drive":"AWD","range_km_wltp":810,"from_price_sek":809000},
+        {"powertrain":"P10","trim":"Ultra","drive":"AWD","range_km_wltp":648,"from_price_sek":809000},
+        {"powertrain":"P12","trim":"Ultra","drive":"AWD","range_km_wltp":810,"from_price_sek":889000}
+      ],
+      "version_families": ["EX60", "Cross Country"]
+    },
+    {
+      "id": "ex90-electric", "name": "EX90", "body_style": "SUV", "propulsion": "BEV", "from_price_sek":899000,
+      "seat_choices": [6,7],
+      "variants": [
+        {"powertrain":"Single Motor","trim":"Plus","drive":"RWD","range_km_wltp":564,"seats":7,"from_price_sek":899000},
+        {"powertrain":"Twin Motor","trim":"Plus","drive":"AWD","range_km_wltp":617,"seats":7,"from_price_sek":990000},
+        {"powertrain":"Twin Motor Performance","trim":"Plus","drive":"AWD","range_km_wltp":617,"seats":7,"from_price_sek":1050000},
+        {"powertrain":"Twin Motor","trim":"Ultra Pro Edition","drive":"AWD","range_km_wltp":604,"seats":7,"from_price_sek":1099900},
+        {"powertrain":"Twin Motor","trim":"Black Edition Ultra","drive":"AWD","range_km_wltp":609,"seats":7,"from_price_sek":1105000},
+        {"powertrain":"Twin Motor Performance","trim":"Ultra Pro Edition","drive":"AWD","range_km_wltp":604,"seats":7,"from_price_sek":1159900},
+        {"powertrain":"Twin Motor Performance","trim":"Black Edition Ultra","drive":"AWD","range_km_wltp":609,"seats":7,"from_price_sek":1165000}
+      ]
+    },
+    {
+      "id": "es90-electric", "name": "ES90", "body_style": "Sedan", "propulsion": "BEV", "from_price_sek":813000, "delivery":"4-5 months",
+      "trims": [{"name":"Plus","price_sek":813000},{"name":"Ultra","price_sek":913000}],
+      "powertrains": [{"name":"Single Motor Extended Range","drive":"RWD","range_km_wltp":664,"price_delta_sek":0},{"name":"Twin Motor","drive":"AWD","price_delta_sek":59000}],
+      "paint": [{"name":"Vapour Grey","price_sek":0},{"name":"Onyx Black","price_sek":11900},{"name":"Crystal White","price_sek":11900},{"name":"Denim Blue","price_sek":11900},{"name":"Aurora Silver","price_sek":11900},{"name":"Sand Dune","price_sek":11900},{"name":"Forest Lake","price_sek":11900},{"name":"Mulberry Red","price_sek":11900}],
+      "options": [{"name":"Tinted rear windows","price_sek":6900},{"name":"Charcoal headlining","price_sek":3900}],
+      "wheels": ["20-inch 7-spoke glossy silver/glossy black","22-inch 5-spoke glossy black/matt graphite diamond cut","22-inch 5-Y spoke glossy black diamond cut"],
+      "interiors": ["Charcoal Nordico","Cardamom Nordico","Dawn Nordico","Ventilated Charcoal Nordico","Ventilated Cardamom Nordico","Ventilated Dawn Nordico","Ventilated Charcoal nappa leather","Ventilated Cardamom nappa leather","Ventilated Dawn nappa leather"]
+    },
+    {
+      "id": "xc90-hybrid", "name": "XC90", "body_style": "SUV", "propulsion": "PHEV", "from_price_sek":994000,
+      "versions": ["XC90", "XC90 Black Edition"], "trims": [{"name":"Ultra","price_sek":994000}],
+      "powertrains": [{"name":"T8 AWD Plug-in Hybrid","drive":"AWD","power_hp":406,"ev_range_km_wltp":66,"price_delta_sek":0}],
+      "themes": ["Bright","Dark"],
+      "paint": [{"name":"Ice White","price_sek":0},{"name":"Onyx Black","price_sek":11900},{"name":"Crystal White","price_sek":11900},{"name":"Denim Blue","price_sek":11900},{"name":"Vapour Grey","price_sek":11900},{"name":"Aurora Silver","price_sek":11900},{"name":"Bright Dusk","price_sek":11900},{"name":"Forest Lake","price_sek":11900},{"name":"Mulberry Red","price_sek":11900}]
+    },
+    {
+      "id": "xc60-hybrid", "name": "XC60", "body_style": "SUV", "propulsion": "PHEV", "from_price_sek":569900,
+      "notes": ["Available in the live SE configurator. Read conditional variants and choices live; this seed deliberately does not infer them."]
+    },
+    {
+      "id": "xc40", "name": "XC40", "body_style": "SUV", "propulsion": "MHEV", "from_price_sek":430000,
+      "notes": ["Available in the live SE configurator. Read conditional variants and choices live; this seed deliberately does not infer them."]
+    },
+    {
+      "id": "v60-hybrid", "name": "V60", "body_style": "Estate", "propulsion": "PHEV", "from_price_sek":539900,
+      "trims": [{"name":"Plus Nordic Edition","price_sek":539900},{"name":"Ultra","price_sek":686000}],
+      "powertrains": [{"name":"T6 AWD Plug-in Hybrid","drive":"AWD","power_hp":335,"ev_range_km_wltp":96,"price_delta_sek":0}],
+      "themes": ["Bright","Dark"],
+      "paint": [{"name":"Ice White","price_sek":0},{"name":"Onyx Black","price_sek":9900},{"name":"Crystal White","price_sek":9900},{"name":"Denim Blue","price_sek":9900},{"name":"Vapour Grey","price_sek":9900},{"name":"Aurora Silver","price_sek":9900},{"name":"Bright Dusk","price_sek":9900},{"name":"Forest Lake","price_sek":9900}],
+      "options": [{"name":"Tinted rear windows","price_sek":5900},{"name":"Metal Mesh aluminium decor","price_sek":1900},{"name":"Charcoal headlining","price_sek":3900}],
+      "wheels": ["18-inch 5-double spoke glossy black diamond cut","19-inch 5-triple spoke glossy black diamond cut","19-inch 6-spoke glossy black diamond cut"],
+      "interiors": ["Charcoal leather","Blond leather","Charcoal nappa leather/leatherette/graphite textile","Ventilated Charcoal nappa leather","Ventilated Amber nappa leather","Ventilated Blond nappa leather"]
+    }
+  ],
+  "assistant_guardrails": [
+    "Never claim an option is available until its compatibility with the selected version, trim, powertrain, interior, and wheel choice is validated.",
+    "Present all prices as preliminary recommended retail prices in SEK and revalidate them at conversation time.",
+    "Keep finance products separate from vehicle configuration and collect finance eligibility only after the vehicle has been selected.",
+    "Use the live source URL below for refresh; Volvo states that price, availability and imagery may change."
+  ],
+  "live_configurator_url_template": "https://www.volvocars.com/se/build/{model_id}/"
+}

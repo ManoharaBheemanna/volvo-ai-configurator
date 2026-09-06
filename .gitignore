@@ -1,0 +1,15 @@
+# Dependencies and Next.js build output
+node_modules/
+.next/
+.pnpm-store/
+
+# Local credentials and machine-specific settings
+.env.local
+.env.*.local
+*.pem
+
+# Local Codex build and render artefacts
+.codex-build/
+
+# Operating system files
+.DS_Store

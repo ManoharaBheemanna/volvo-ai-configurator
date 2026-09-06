@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color:#121212; background:#f6f6f5; }
+body { margin:0; font-family: Arial, Helvetica, sans-serif; }
+button, input { font:inherit; }
+/* Preserve line breaks in assistant comparison tables without changing user input. */
+.max-h-80 > [class*="max-w-"] { white-space: pre-wrap; }

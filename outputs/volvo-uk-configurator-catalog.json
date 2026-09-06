@@ -1,0 +1,44 @@
+{
+  "dataset": "Volvo Cars UK configurator catalogue",
+  "market": "UK",
+  "language": "en-GB",
+  "currency": "GBP",
+  "captured_at": "2026-09-04",
+  "source_url": "https://www.volvocars.com/uk/build/",
+  "disclaimer": "Prices, specifications, range, taxes, images, availability and finance eligibility must be confirmed against Volvo's live configurator and retailer quote before presentation to a customer.",
+  "configuration_order": ["model", "powertrain", "trim", "exterior_colour", "interior", "wheels", "optional_packages", "finance", "part_exchange", "delivery", "retailer_handoff"],
+  "models": [
+    {"id":"ex90-electric","name":"EX90","body_style":"SUV","powertrain":"electric","from_price_gbp":73160,"build_url":"https://www.volvocars.com/uk/build/ex90-electric/"},
+    {"id":"ex60-electric","name":"EX60","body_style":"SUV","powertrain":"electric","from_price_gbp":56860,"build_url":"https://www.volvocars.com/uk/build/ex60-electric/"},
+    {"id":"ex40-electric","name":"EX40","body_style":"SUV","powertrain":"electric","from_price_gbp":42360,"build_url":"https://www.volvocars.com/uk/build/ex40-electric/"},
+    {"id":"ex30-electric","name":"EX30","body_style":"SUV","powertrain":"electric","from_price_gbp":33060,"build_url":"https://www.volvocars.com/uk/build/ex30-electric/"},
+    {"id":"ec40-electric","name":"EC40","body_style":"crossover","powertrain":"electric","from_price_gbp":44860,"build_url":"https://www.volvocars.com/uk/build/ec40-electric/"},
+    {"id":"es90-electric","name":"ES90","body_style":"saloon","powertrain":"electric","from_price_gbp":65060,"build_url":"https://www.volvocars.com/uk/build/es90-electric/"},
+    {"id":"xc90-hybrid","name":"XC90","body_style":"SUV","powertrain":"plug-in hybrid","from_price_gbp":68765,"build_url":"https://www.volvocars.com/uk/build/xc90-hybrid/"},
+    {"id":"xc90","name":"XC90","body_style":"SUV","powertrain":"mild hybrid","from_price_gbp":66270,"build_url":"https://www.volvocars.com/uk/build/xc90/"},
+    {"id":"xc60-hybrid","name":"XC60","body_style":"SUV","powertrain":"plug-in hybrid","from_price_gbp":53265,"build_url":"https://www.volvocars.com/uk/build/xc60-hybrid/"},
+    {"id":"xc60","name":"XC60","body_style":"SUV","powertrain":"mild hybrid","from_price_gbp":49860,"build_url":"https://www.volvocars.com/uk/build/xc60/"},
+    {"id":"xc40","name":"XC40","body_style":"SUV","powertrain":"mild hybrid","from_price_gbp":32860,"build_url":"https://www.volvocars.com/uk/build/xc40/"},
+    {"id":"v60-hybrid","name":"V60","body_style":"estate","powertrain":"plug-in hybrid","from_price_gbp":52765,"build_url":"https://www.volvocars.com/uk/build/v60-hybrid/"},
+    {"id":"v60","name":"V60","body_style":"estate","powertrain":"mild hybrid","from_price_gbp":45210,"build_url":"https://www.volvocars.com/uk/build/v60/"}
+  ],
+  "selection_dimensions": ["trim", "exterior_colour", "interior", "wheels", "packages", "accessories"],
+  "order_flow": {
+    "customer_types": ["personal", "business"],
+    "personal_finance": [
+      {"id":"purchase","label":"Purchase","type":"ownership"},
+      {"id":"pcp","label":"Personal Contract Purchase","type":"finance"},
+      {"id":"volvo_loan","label":"Volvo Loan","type":"finance"},
+      {"id":"pch","label":"Personal Contract Hire","type":"lease"}
+    ],
+    "part_exchange": ["no_part_exchange", "part_exchange_requested"],
+    "delivery_preferences": ["fastest_delivery", "requested_delivery_window"],
+    "retailer_handoff_fields": ["name", "email_or_phone", "postcode_or_preferred_retailer", "test_drive_preference", "consent"]
+  },
+  "assistant_rules": [
+    "Never treat monthly finance figures as valid until returned by Volvo's live finance and eligibility systems.",
+    "Do not expose retailer-contact fields until a configuration and finance direction have been selected.",
+    "Keep finance route, part exchange and delivery as order-stage attributes; they do not alter vehicle compatibility.",
+    "Fetch exact option IDs and compatibility dynamically for the chosen model before changing trim, paint, interior, wheels or packages."
+  ]
+}
