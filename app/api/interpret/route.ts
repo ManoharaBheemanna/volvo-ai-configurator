@@ -101,6 +101,27 @@ function searchCars({ priceMin, priceMax, seatsMin, bodyType, sizeTier, powertra
   return cars.slice(0, Math.min(Math.max(limit, 1), 5));
 }
 
+function groundedDiscovery(message: string, powertrain: string | null) {
+  const seats = explicitlyRequestedSeats(message);
+  const hasDiscoveryLanguage = /\b(?:need|want|looking|find|show|recommend|car|vehicle|suv|seat|seater|family)\b/.test(message);
+  // Leave relational price questions and comparisons to their dedicated
+  // rules below: they need a reference model or a trade-off explanation.
+  if (/\b(?:cheaper|more expensive|under|budget|compare|versus|difference)\b/.test(message)) return null;
+  const groundedPowertrain = powertrain === "electric" || powertrain === "plug_in_hybrid" || powertrain === "mild_hybrid"
+    ? powertrain
+    : null;
+  if (!hasDiscoveryLanguage || (!seats && !groundedPowertrain)) return null;
+
+  const matches = searchCars({
+    seatsMin: seats ?? undefined,
+    powertrain: groundedPowertrain,
+    sortBy: "price",
+    order: "asc",
+    limit: 5,
+  }).filter(car => !seats || car.seats === seats);
+  return { seats, powertrain: groundedPowertrain, matches };
+}
+
 function namedModelFor(message: string): VolvoCar | null {
   const lower = message.toLowerCase();
   return volvoUkModels.find(car => new RegExp(`\\b${car.id}\\b`, "i").test(lower)) || null;
@@ -140,6 +161,57 @@ function normalizePowertrain(message: string) {
   if (/\b(mild[- ]hybrid|mhev)\b/.test(lower)) return "mild_hybrid";
   if (/\b(plug[- ]in hybrid|phev)\b/.test(lower)) return "plug_in_hybrid";
   if (/\bhybrid\b/.test(lower)) return "hybrid";
+  return null;
+}
+
+// This intentionally corrects only a small, product-owned vocabulary. We do
+// not use fuzzy matching to turn arbitrary customer text into a car choice.
+function editDistance(left: string, right: string) {
+  const row = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    let diagonal = row[0];
+    row[0] = leftIndex;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const previous = row[rightIndex];
+      row[rightIndex] = Math.min(
+        row[rightIndex] + 1,
+        row[rightIndex - 1] + 1,
+        diagonal + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1),
+      );
+      diagonal = previous;
+    }
+  }
+  return row[right.length];
+}
+
+function normalizeCustomerMessage(input: string) {
+  const commonTypos: Record<string, string> = {
+    eletric: "electric",
+    electic: "electric",
+    hybdrid: "hybrid",
+    sevn: "seven",
+    seater: "seater",
+    famly: "family",
+    colur: "colour",
+  };
+  let message = input.trim().toLowerCase().replace(/[–—]/g, "-");
+  message = message.replace(/\b(ex|xc|ec|es|v)\s*[- ]?\s*([3469])[oO]\b/g, "$1$20");
+  message = message.replace(/\b(ex|xc|ec|es|v)\s*[- ]?\s*([3469])0\b/g, "$1$20");
+  message = message.replace(/\b[a-z]+\b/g, (token) => commonTypos[token] || token);
+  message = message.replace(/\b(?:ex|xc|ec|es|v)[a-z0-9-]{1,5}\b/g, (token) => {
+    const matches = modelIds.filter(id => editDistance(token.replace(/-/g, ""), id) <= 1);
+    return matches.length === 1 ? matches[0] : token;
+  });
+  return message;
+}
+
+function isGreeting(message: string) {
+  return /^(?:hi+|hello+|hey+|heya|heyt|yo|good (?:morning|afternoon|evening))[!.\s]*$/.test(message);
+}
+
+function explicitlyRequestedSeats(message: string) {
+  if (/\b(?:7|seven)\s*(?:seat|seater)s?\b/.test(message)) return 7;
+  if (/\b(?:5|five)\s*(?:seat|seater)s?\b/.test(message)) return 5;
   return null;
 }
 
@@ -355,10 +427,9 @@ const schema = {
 
 export async function POST(request: Request) {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) return NextResponse.json({ error: "Server AI is not configured. Add OPENAI_API_KEY to .env.local." }, { status: 503 });
-
   const body = await request.json().catch(() => null);
-  const message = typeof body?.message === "string" ? body.message.trim() : "";
+  const rawMessage = typeof body?.message === "string" ? body.message.trim() : "";
+  const message = normalizeCustomerMessage(rawMessage);
   const sessionId = typeof body?.sessionId === "string" && body.sessionId.length <= 100 ? body.sessionId : "default";
   const isSessionStart = !sessions.has(sessionId);
   const sessionState = sessions.get(sessionId) ?? emptySession();
@@ -369,6 +440,35 @@ export async function POST(request: Request) {
     : emptyPreferenceState;
   if (!message || message.length > 1000) return NextResponse.json({ error: "Send a message of up to 1,000 characters." }, { status: 400 });
   const normalizedPowertrain = normalizePowertrain(message);
+
+  // Greetings and high-confidence catalogue searches should remain helpful
+  // even when an AI provider is unavailable. Neither changes preferences.
+  if (isGreeting(message)) {
+    return NextResponse.json({
+      intent: "greeting", relevant: true, confidence: 1, clarificationNeeded: false,
+      preferences: emptyPreferenceState, changes: emptyPreferenceState,
+      summary: "Customer greeted.", preferenceState: savedState, sessionState,
+      assistantReply: isSessionStart
+        ? "Hello. I can help you choose and configure a Volvo Cars UK vehicle. What matters most: passengers, driving, budget, or a must-have?"
+        : "Hello again. I’ve kept your current Volvo preferences in mind. What would you like to explore or change?",
+      resolvedBy: "local_greeting",
+    });
+  }
+
+  const discovery = groundedDiscovery(message, normalizedPowertrain);
+  if (discovery) {
+    sessionState.lastResults = discovery.matches;
+    sessionState.activeComparison = [];
+    const powertrainLabel = discovery.powertrain === "electric" ? "electric " : discovery.powertrain === "plug_in_hybrid" ? "plug-in hybrid " : discovery.powertrain === "mild_hybrid" ? "mild-hybrid " : "";
+    const seatLabel = discovery.seats ? `${discovery.seats}-seat ` : "";
+    const changes = { ...emptyPreferenceState, seats: discovery.seats, powertrain: discovery.powertrain };
+    const preferenceState = mergePreferenceState(savedState, changes);
+    if (!discovery.matches.length) {
+      return NextResponse.json({ intent: "clarify", relevant: true, confidence: 1, clarificationNeeded: true, preferences: changes, changes, summary: "No exact catalogue match.", preferenceState, sessionState, assistantReply: `I couldn’t find a ${seatLabel}${powertrainLabel}Volvo UK match in this catalogue snapshot. Which requirement would you like to relax?`, resolvedBy: "local_catalogue_search" });
+    }
+    const listed = discovery.matches.map(car => `${car.name} from £${car.price.toLocaleString("en-GB")}`).join("; ");
+    return NextResponse.json({ intent: "search", relevant: true, confidence: 1, clarificationNeeded: false, preferences: changes, changes, summary: "Resolved from explicit customer requirements.", preferenceState, sessionState, assistantReply: `I found these ${seatLabel}${powertrainLabel}Volvo UK options: ${listed}. Would you like to compare them or open one to configure?`, recommendations: discovery.matches, toolUsed: "search_cars", resolvedBy: "local_catalogue_search" });
+  }
 
   const referenceMessage = message.toLowerCase();
   const comparisonAttribute = comparisonAttributeFor(message);
@@ -527,6 +627,15 @@ export async function POST(request: Request) {
 
   const comparison = referenceComparisonFor(message, activeConfigModel);
   const rankingQuestion = Boolean(comparison) || /\b(compare|show|list|rank)\b.{0,35}\b(lowest|cheapest|lowest-priced|most expensive|highest price)\b|\b(lowest-priced|cheapest options?|expensive|premium|highest[- ]priced|most expensive)\b/.test(message.toLowerCase());
+  if (!key) {
+    console.error("OpenAI interpretation request skipped: OPENAI_API_KEY is not configured.");
+    return NextResponse.json({
+      intent: "clarify", relevant: false, confidence: 0, clarificationNeeded: true,
+      preferences: emptyPreferenceState, changes: emptyPreferenceState,
+      summary: "The AI interpretation service is not configured.", preferenceState: savedState, sessionState,
+      assistantReply: "I understood this may need a more open-ended interpretation, but the AI service is not configured right now. Please try a Volvo model, seats, powertrain, price, colour, wheels, package or finance request.",
+    }, { status: 503 });
+  }
   const apiRequest = (payload: unknown) => fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
@@ -549,7 +658,7 @@ export async function POST(request: Request) {
     const code = typeof providerError?.error?.code === "string" ? providerError.error.code : "no_code";
     console.error("OpenAI interpretation request failed", { status: response.status, code, message });
     console.error(providerError);
-    return NextResponse.json({ intent: "clarify" }, { status: 502 });
+    return NextResponse.json({ intent: "clarify", relevant: false, confidence: 0, clarificationNeeded: true, preferences: emptyPreferenceState, changes: emptyPreferenceState, summary: "The AI interpretation service is temporarily unavailable.", preferenceState: savedState, sessionState, assistantReply: "I couldn’t interpret that request right now. Please try again, or use a specific Volvo model, seats, powertrain, price, colour, wheels, package or finance request." }, { status: 502 });
   }
   let payload = await response.json();
   const functionCalls = Array.isArray(payload.output) ? payload.output.filter((item: { type?: string; name?: string }) => item.type === "function_call") : [];
@@ -634,7 +743,7 @@ export async function POST(request: Request) {
   if (!outputText) {
     console.error("OpenAI interpretation response did not contain structured text", { responseId: payload.id });
     console.error(payload);
-    return NextResponse.json({ intent: "clarify" }, { status: 502 });
+    return NextResponse.json({ intent: "clarify", relevant: false, confidence: 0, clarificationNeeded: true, preferences: emptyPreferenceState, changes: emptyPreferenceState, summary: "The AI interpretation response was incomplete.", preferenceState: savedState, sessionState, assistantReply: "I couldn’t interpret that request right now. Please try rephrasing it as a Volvo model, requirement, comparison or configuration change." }, { status: 502 });
   }
   try {
     const extracted = JSON.parse(outputText);
@@ -643,6 +752,6 @@ export async function POST(request: Request) {
   } catch (rawError) {
     console.error("OpenAI interpretation response did not contain valid structured text", { responseId: payload.id, outputTextPresent: Boolean(outputText) });
     console.error(rawError);
-    return NextResponse.json({ intent: "clarify" }, { status: 502 });
+    return NextResponse.json({ intent: "clarify", relevant: false, confidence: 0, clarificationNeeded: true, preferences: emptyPreferenceState, changes: emptyPreferenceState, summary: "The AI interpretation response was invalid.", preferenceState: savedState, sessionState, assistantReply: "I couldn’t interpret that request right now. Please try rephrasing it as a Volvo model, requirement, comparison or configuration change." }, { status: 502 });
   }
 }
