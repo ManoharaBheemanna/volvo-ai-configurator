@@ -245,8 +245,8 @@ function ChatPanel({
   const [sessionId] = useState(() => crypto.randomUUID());
   const [loading, setLoading] = useState(false);
 
-  async function send() {
-    const value = message.trim();
+  async function send(draft = message) {
+    const value = draft.trim();
     if (!value || loading) return;
     const conversation = [...messages, { role: "user" as const, text: value }];
     setMessage("");
@@ -323,9 +323,30 @@ function ChatPanel({
         ))}
         {loading ? <div className="max-w-[90%] rounded-xl bg-stone-100 p-3 text-stone-500">Looking up Volvo Cars UK options…</div> : null}
       </div>
-      <div className="mt-4 rounded-xl border border-dashed border-stone-200 p-3 text-sm text-stone-500">
-        Try: “I need seven seats, but something cheaper than the EX60.”
+      <div className="mt-4 rounded-xl border border-dashed border-stone-200 p-3">
+        <p className="text-xs font-bold tracking-[.14em] text-stone-500">START WITH A NEED OR CONFIGURE DIRECTLY</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {["I need a family electric Volvo", "Show the cheapest SUV", "Compare EX40 and EX60", "I need seven seats"].map((suggestion) => (
+            <button key={suggestion} onClick={() => send(suggestion)} disabled={loading} className="rounded-full border border-stone-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-stone-700 hover:border-stone-500 disabled:opacity-40">{suggestion}</button>
+          ))}
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {["Choose Ultra trim", "Make it Fjord Blue", "Add panoramic roof", "Take me to the next step"].map((suggestion) => (
+            <button key={suggestion} onClick={() => send(suggestion)} disabled={loading} className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-left text-xs font-medium text-stone-700 hover:border-stone-500 disabled:opacity-40">{suggestion}</button>
+          ))}
+        </div>
       </div>
+      {Object.values(preferenceState).some(Boolean) ? (
+        <div className="mt-3 rounded-xl bg-stone-50 p-3 text-xs text-stone-600">
+          <span className="font-bold tracking-[.12em] text-stone-500">WHAT I’VE UNDERSTOOD</span>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {preferenceState.model ? <span className="rounded-full bg-white px-2 py-1">Model: {preferenceState.model.toUpperCase()}</span> : null}
+            {preferenceState.seats ? <span className="rounded-full bg-white px-2 py-1">{preferenceState.seats} seats</span> : null}
+            {preferenceState.powertrain ? <span className="rounded-full bg-white px-2 py-1">{preferenceState.powertrain.replaceAll("_", " ")}</span> : null}
+            {preferenceState.pricePreference ? <span className="rounded-full bg-white px-2 py-1">{preferenceState.pricePreference} price</span> : null}
+          </div>
+        </div>
+      ) : null}
       <div className="mt-5 flex gap-2">
         <input
           value={message}
@@ -336,7 +357,7 @@ function ChatPanel({
           placeholder="Describe what you need…"
           className="min-w-0 flex-1 rounded-lg border border-stone-200 px-3 py-3 text-sm"
         />
-        <button onClick={send} disabled={loading} className="rounded-lg bg-stone-950 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
+        <button onClick={() => send()} disabled={loading} className="rounded-lg bg-stone-950 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
           {loading ? "Thinking…" : "Send"}
         </button>
       </div>

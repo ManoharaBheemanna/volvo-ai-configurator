@@ -103,23 +103,26 @@ function searchCars({ priceMin, priceMax, seatsMin, bodyType, sizeTier, powertra
 
 function groundedDiscovery(message: string, powertrain: string | null) {
   const seats = explicitlyRequestedSeats(message);
-  const hasDiscoveryLanguage = /\b(?:need|want|looking|find|show|recommend|car|vehicle|suv|seat|seater|family)\b/.test(message);
+  const bodyType = /\bsuv\b/.test(message) ? "suv" : /\bestate\b/.test(message) ? "estate" : /\bsaloon\b/.test(message) ? "saloon" : null;
+  const pricePreference: "lowest" | "highest" | null = /\b(?:cheap|cheapest|affordable|lowest(?:[- ]priced)?)\b/.test(message) ? "lowest" : /\b(?:expensive|premium|top[- ]end|highest(?:[- ]priced)?|most expensive)\b/.test(message) ? "highest" : null;
+  const hasDiscoveryLanguage = /\b(?:need|want|looking|find|show|recommend|car|vehicle|suv|estate|saloon|seat|seater|family|cheap|premium)\b/.test(message);
   // Leave relational price questions and comparisons to their dedicated
   // rules below: they need a reference model or a trade-off explanation.
-  if (/\b(?:cheaper|more expensive|under|budget|compare|versus|difference)\b/.test(message)) return null;
+  if (/\b(?:cheaper than|more expensive than|under|budget|compare|versus|difference)\b/.test(message)) return null;
   const groundedPowertrain = powertrain === "electric" || powertrain === "plug_in_hybrid" || powertrain === "mild_hybrid"
     ? powertrain
     : null;
-  if (!hasDiscoveryLanguage || (!seats && !groundedPowertrain)) return null;
+  if (!hasDiscoveryLanguage || (!seats && !groundedPowertrain && !bodyType && !pricePreference)) return null;
 
   const matches = searchCars({
     seatsMin: seats ?? undefined,
+    bodyType,
     powertrain: groundedPowertrain,
     sortBy: "price",
-    order: "asc",
+    order: pricePreference === "highest" ? "desc" : "asc",
     limit: 5,
   }).filter(car => !seats || car.seats === seats);
-  return { seats, powertrain: groundedPowertrain, matches };
+  return { seats, powertrain: groundedPowertrain, bodyType, pricePreference, matches };
 }
 
 function namedModelFor(message: string): VolvoCar | null {
@@ -463,6 +466,9 @@ export async function POST(request: Request) {
     sessions.set(sessionId, resetState);
     return NextResponse.json({ intent: "reset", relevant: true, confidence: 1, clarificationNeeded: false, preferences: emptyPreferenceState, changes: emptyPreferenceState, summary: "Customer reset the build.", preferenceState: emptyPreferenceState, sessionState: resetState, assistantReply: "I’ve reset the build and the saved conversation preferences. What would you like in your Volvo?", resolvedBy: "local_session_command" });
   }
+  if (/^(?:i )?(?:need|want|am looking for) (?:a )?(?:car|volvo)[!.\s]*$/.test(message)) {
+    return NextResponse.json({ intent: "clarify", relevant: true, confidence: 1, clarificationNeeded: true, preferences: emptyPreferenceState, changes: emptyPreferenceState, summary: "Customer started vehicle discovery.", preferenceState: savedState, sessionState, assistantReply: "Absolutely. What matters most for your Volvo: passengers, electric driving, budget, or a particular body style?", resolvedBy: "local_discovery_prompt" });
+  }
 
   const discovery = groundedDiscovery(message, normalizedPowertrain);
   if (discovery) {
@@ -470,13 +476,15 @@ export async function POST(request: Request) {
     sessionState.activeComparison = [];
     const powertrainLabel = discovery.powertrain === "electric" ? "electric " : discovery.powertrain === "plug_in_hybrid" ? "plug-in hybrid " : discovery.powertrain === "mild_hybrid" ? "mild-hybrid " : "";
     const seatLabel = discovery.seats ? `${discovery.seats}-seat ` : "";
-    const changes = { ...emptyPreferenceState, seats: discovery.seats, powertrain: discovery.powertrain };
+    const bodyLabel = discovery.bodyType ? `${discovery.bodyType.toUpperCase()} ` : "";
+    const priceLabel = discovery.pricePreference === "lowest" ? "lowest-priced " : discovery.pricePreference === "highest" ? "highest-priced " : "";
+    const changes = { ...emptyPreferenceState, seats: discovery.seats, powertrain: discovery.powertrain, pricePreference: discovery.pricePreference };
     const preferenceState = mergePreferenceState(savedState, changes);
     if (!discovery.matches.length) {
-      return NextResponse.json({ intent: "clarify", relevant: true, confidence: 1, clarificationNeeded: true, preferences: changes, changes, summary: "No exact catalogue match.", preferenceState, sessionState, assistantReply: `I couldn’t find a ${seatLabel}${powertrainLabel}Volvo UK match in this catalogue snapshot. Which requirement would you like to relax?`, resolvedBy: "local_catalogue_search" });
+      return NextResponse.json({ intent: "clarify", relevant: true, confidence: 1, clarificationNeeded: true, preferences: changes, changes, summary: "No exact catalogue match.", preferenceState, sessionState, assistantReply: `I couldn’t find a ${priceLabel}${seatLabel}${powertrainLabel}${bodyLabel}Volvo UK match in this catalogue snapshot. Which requirement would you like to relax?`, resolvedBy: "local_catalogue_search" });
     }
     const listed = discovery.matches.map(car => `${car.name} from £${car.price.toLocaleString("en-GB")}`).join("; ");
-    return NextResponse.json({ intent: "search", relevant: true, confidence: 1, clarificationNeeded: false, preferences: changes, changes, summary: "Resolved from explicit customer requirements.", preferenceState, sessionState, assistantReply: `I found these ${seatLabel}${powertrainLabel}Volvo UK options: ${listed}. Would you like to compare them or open one to configure?`, recommendations: discovery.matches, toolUsed: "search_cars", resolvedBy: "local_catalogue_search" });
+    return NextResponse.json({ intent: "search", relevant: true, confidence: 1, clarificationNeeded: false, preferences: changes, changes, summary: "Resolved from explicit customer requirements.", preferenceState, sessionState, assistantReply: `I found these ${priceLabel}${seatLabel}${powertrainLabel}${bodyLabel}Volvo UK options: ${listed}. Would you like to compare them or open one to configure?`, recommendations: discovery.matches, toolUsed: "search_cars", resolvedBy: "local_catalogue_search" });
   }
 
   const referenceMessage = message.toLowerCase();
