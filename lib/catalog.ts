@@ -1,4 +1,4 @@
-export type Item = { id: string; name: string; priceDelta: number; hex?: string; requiresTrim?: string[]; incompatibleWith?: string[] };
+export type Item = { id: string; name: string; priceDelta: number; hex?: string; requiresTrim?: string[]; incompatibleWith?: string[]; availableFor?: string[] };
 export type VehicleSize = "small" | "medium" | "large";
 export type Model = { id: string; name: string; basePrice: number; bodyType: "suv" | "crossover" | "estate" | "saloon"; sizeTier: VehicleSize };
 export const catalog = {
@@ -27,10 +27,10 @@ export const catalog = {
   ] satisfies Item[],
   wheels: [
     { id:"19-aero", name:'19" Aero alloy wheels', priceDelta:0 }, { id:"20-turbine", name:'20" Aero alloy wheels', priceDelta:1200 },
-    { id:"21-diamond-cut", name:'21" diamond-cut alloy wheels', priceDelta:1800, requiresTrim:["plus","ultra"] }, { id:"21-black", name:'21" black alloy wheels', priceDelta:2100, requiresTrim:["plus","ultra"] }
+    { id:"21-diamond-cut", name:'21" diamond-cut alloy wheels', priceDelta:1800, requiresTrim:["plus","ultra"], availableFor:["ex60","es90","xc90","ex90"] }, { id:"21-black", name:'21" black alloy wheels', priceDelta:2100, requiresTrim:["plus","ultra"], availableFor:["ex60","xc90","ex90"] }
   ] satisfies Item[],
   options: [
-    {id:"panoramic-roof",name:"Panoramic roof",priceDelta:1600}, {id:"climate-pack",name:"Climate pack",priceDelta:1800},
+    {id:"panoramic-roof",name:"Panoramic roof",priceDelta:1600,availableFor:["ex40","ec40","xc60","ex60","es90","xc90","ex90"]}, {id:"climate-pack",name:"Climate pack",priceDelta:1800},
     {id:"driver-assist",name:"Driver assistance pack",priceDelta:2200}, {id:"harman-kardon",name:"Harman Kardon Premium Sound",priceDelta:1400},
     {id:"towbar",name:"Towbar",priceDelta:1100}, {id:"winter-wheels",name:"Winter wheel set",priceDelta:900},
     {id:"charcoal-interior",name:"Charcoal interior",priceDelta:0,incompatibleWith:["zinc-interior"]}, {id:"zinc-interior",name:"Zinc interior",priceDelta:0,incompatibleWith:["charcoal-interior"]},

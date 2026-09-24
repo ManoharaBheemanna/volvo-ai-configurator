@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { catalog, Config, defaultConfig, find, Item } from "../lib/catalog";
-import { total, validateItem } from "../lib/configEngine";
+import { normalizeConfigForModel, total, validateItem } from "../lib/configEngine";
 
 type PreferenceState = {
   seats: number | null;
@@ -66,11 +66,13 @@ function Choice({
   item,
   active,
   disabled,
+  priceLabel,
   onChoose,
 }: {
   item: Item;
   active: boolean;
   disabled?: boolean;
+  priceLabel?: string;
   onChoose: () => void;
 }) {
   const stateClass = active
@@ -85,7 +87,7 @@ function Choice({
     >
       <span className="block text-sm font-medium">{item.name}</span>
       <span className={"mt-1 block text-xs " + (active ? "text-stone-300" : "text-stone-500")}>
-        {item.priceDelta ? "+" + money(item.priceDelta) : "Included"}
+        {priceLabel || (item.priceDelta ? "+" + money(item.priceDelta) : "Included")}
       </span>
     </button>
   );
@@ -215,9 +217,13 @@ function applyConfigurationChanges(changes: Interpretation["configurationChanges
 function ChatPanel({
   onInterpret,
   onNextStep,
+  onUndo,
+  onReset,
 }: {
   onInterpret: (result: Interpretation) => void;
   onNextStep: () => void;
+  onUndo: () => void;
+  onReset: () => void;
 }) {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -266,6 +272,8 @@ function ChatPanel({
       if (!response.ok) throw new Error(result.assistantReply || "Could you rephrase that?");
       if (result.preferenceState) setPreferenceState(result.preferenceState);
       if (result.intent === "next_step") onNextStep();
+      if (result.intent === "undo") onUndo();
+      if (result.intent === "reset") onReset();
       applyConfigurationChanges(result.configurationChanges);
 
       const fallback = result.relevant
@@ -339,7 +347,7 @@ function ChatPanel({
   );
 }
 
-function Summary({ config, price, onContinue }: { config: Config; price: number; onContinue: () => void }) {
+function Summary({ config, price, onContinue, onCopy }: { config: Config; price: number; onContinue: () => void; onCopy: () => void }) {
   const entries = [
     find(catalog.trims, config.trim),
     find(catalog.colors, config.color),
@@ -353,6 +361,10 @@ function Summary({ config, price, onContinue }: { config: Config; price: number;
       <p className="text-xs font-bold tracking-[.16em] text-stone-500">YOUR BUILD</p>
       <h2 className="mt-2 text-2xl font-semibold">{model?.name || "Volvo Cars UK configuration"}</h2>
       <ul className="my-5 space-y-3 border-y border-stone-100 py-4">
+        <li className="flex justify-between gap-3 text-sm">
+          <span>Base vehicle</span>
+          <span className="text-stone-500">{money(model?.basePrice || 0)}</span>
+        </li>
         {entries.map((item) => (
           <li className="flex justify-between gap-3 text-sm" key={item.id}>
             <span>{item.name}</span>
@@ -364,6 +376,9 @@ function Summary({ config, price, onContinue }: { config: Config; price: number;
       <p className="mt-1 text-3xl font-semibold">{money(price)}</p>
       <button onClick={onContinue} className="mt-5 w-full rounded-lg bg-stone-950 px-4 py-3 text-sm font-semibold text-white">
         Take me to the next step
+      </button>
+      <button onClick={onCopy} className="mt-2 w-full rounded-lg border border-stone-200 px-4 py-3 text-sm font-semibold text-stone-800">
+        Copy build summary
       </button>
     </aside>
   );
@@ -437,9 +452,42 @@ function OrderDetails({ price, onBack }: { price: number; onBack: () => void }) 
 
 export function Configurator() {
   const [config, setConfig] = useState<Config>(defaultConfig);
+  const [history, setHistory] = useState<Config[]>([]);
   const [notice, setNotice] = useState("Select a colour, wheel or option to build your Volvo Cars UK configuration.");
   const [stage, setStage] = useState<"configure" | "order">("configure");
   const price = total(config);
+
+  function commit(next: Config, nextNotice: string) {
+    setHistory((current) => [...current, config]);
+    setConfig(next);
+    setNotice(nextNotice);
+  }
+
+  function updateModel(modelId: string) {
+    const model = catalog.models.find((item) => item.id === modelId);
+    if (!model) return;
+    const next = normalizeConfigForModel({ ...config, model: modelId });
+    commit(next, `${model.name} selected. Incompatible prototype choices were removed.`);
+  }
+
+  function undo() {
+    setHistory((current) => {
+      const previous = current[current.length - 1];
+      if (!previous) {
+        setNotice("There is no earlier configuration change to undo.");
+        return current;
+      }
+      setConfig(previous);
+      setNotice("Last configuration change undone.");
+      return current.slice(0, -1);
+    });
+  }
+
+  function resetBuild() {
+    setHistory([]);
+    setConfig(defaultConfig);
+    setNotice("Build reset to the EX40 prototype starting point.");
+  }
 
   function update(key: "trim" | "color" | "wheels", item: Item) {
     const next = { ...config, [key]: item.id };
@@ -456,8 +504,7 @@ export function Configurator() {
         return option ? validateItem(option, next).valid : false;
       });
     }
-    setConfig(next);
-    setNotice(item.name + " selected.");
+    commit(next, item.name + " selected.");
   }
 
   function toggleOption(item: Item) {
@@ -471,8 +518,7 @@ export function Configurator() {
       setNotice(result.reason || "That option is not compatible with the current build.");
       return;
     }
-    setConfig(next);
-    setNotice(item.name + (selected ? " removed." : " added."));
+    commit(next, item.name + (selected ? " removed." : " added."));
   }
 
   if (stage === "order") {
@@ -492,22 +538,34 @@ export function Configurator() {
           <CarVisual config={config} />
           <ChatPanel
             onInterpret={(result) => {
+              if (result.intent === "undo" || result.intent === "reset") return;
               const selectedModel = result.preferenceState?.model;
               if (selectedModel && catalog.models.some((model) => model.id === selectedModel)) {
-                setConfig((current) => ({ ...current, model: selectedModel }));
-                setNotice((catalog.models.find((model) => model.id === selectedModel)?.name || "Model") + " loaded from the assistant.");
+                updateModel(selectedModel);
               } else if (result.summary) {
                 setNotice("AI understood: " + result.summary + " (" + Math.round(result.confidence * 100) + "% confidence). Review before applying any change.");
               }
             }}
             onNextStep={() => setStage("order")}
+            onUndo={undo}
+            onReset={resetBuild}
           />
           <section className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="mb-5">
               <p className="text-xs font-bold tracking-[.16em] text-stone-500">CONFIGURE</p>
               <p className="mt-2 text-sm text-stone-600">{notice}</p>
             </div>
-            <h3 className="mb-3 font-semibold">Trim</h3>
+            <div className="mb-7 flex items-center justify-between gap-4">
+              <div>
+                <h3 className="font-semibold">Model</h3>
+                <p className="mt-1 text-xs text-stone-500">Changing model keeps only compatible prototype choices.</p>
+              </div>
+              <button onClick={undo} disabled={!history.length} className="rounded-lg border border-stone-200 px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40">Undo</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {catalog.models.map((item) => <Choice key={item.id} item={{ id: item.id, name: item.name, priceDelta: item.basePrice }} priceLabel={`From ${money(item.basePrice)}`} active={config.model === item.id} onChoose={() => updateModel(item.id)} />)}
+            </div>
+            <h3 className="mb-3 mt-7 font-semibold">Trim</h3>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {catalog.trims.map((item) => <Choice key={item.id} item={item} active={config.trim === item.id} onChoose={() => update("trim", item)} />)}
             </div>
@@ -521,15 +579,32 @@ export function Configurator() {
                 <Choice key={item.id} item={item} active={config.wheels === item.id} disabled={!validateItem(item, config).valid && config.wheels !== item.id} onChoose={() => update("wheels", item)} />
               ))}
             </div>
-            <h3 className="mb-3 mt-7 font-semibold">Packages and options</h3>
+            <h3 className="mb-3 mt-7 font-semibold">Interior</h3>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {catalog.options.map((item) => (
+              {catalog.options.filter((item) => item.id.endsWith("-interior")).map((item) => (
+                <Choice key={item.id} item={item} active={config.options.includes(item.id)} disabled={!config.options.includes(item.id) && !validateItem(item, config).valid} onChoose={() => toggleOption(item)} />
+              ))}
+            </div>
+            <h3 className="mb-3 mt-7 font-semibold">Packages</h3>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {catalog.options.filter((item) => item.id.endsWith("-pack")).map((item) => (
+                <Choice key={item.id} item={item} active={config.options.includes(item.id)} disabled={!config.options.includes(item.id) && !validateItem(item, config).valid} onChoose={() => toggleOption(item)} />
+              ))}
+            </div>
+            <h3 className="mb-3 mt-7 font-semibold">Individual options</h3>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {catalog.options.filter((item) => !item.id.endsWith("-pack") && !item.id.endsWith("-interior")).map((item) => (
                 <Choice key={item.id} item={item} active={config.options.includes(item.id)} disabled={!config.options.includes(item.id) && !validateItem(item, config).valid} onChoose={() => toggleOption(item)} />
               ))}
             </div>
           </section>
         </div>
-        <Summary config={config} price={price} onContinue={() => setStage("order")} />
+        <Summary config={config} price={price} onContinue={() => setStage("order")} onCopy={() => {
+          const model = catalog.models.find((item) => item.id === config.model);
+          const selected = [find(catalog.trims, config.trim), find(catalog.colors, config.color), find(catalog.wheels, config.wheels), ...config.options.map((id) => find(catalog.options, id))].filter(Boolean).map((item) => (item as Item).name);
+          navigator.clipboard.writeText(`${model?.name || "Volvo Cars UK"}\n${selected.join(" · ")}\nIndicative price: ${money(price)}`);
+          setNotice("Build summary copied. Prices and availability remain indicative until live Volvo checkout.");
+        }} />
       </div>
     </main>
   );

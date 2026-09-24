@@ -455,6 +455,15 @@ export async function POST(request: Request) {
     });
   }
 
+  if (/^(?:undo|undo that|go back)[!.\s]*$/.test(message)) {
+    return NextResponse.json({ intent: "undo", relevant: true, confidence: 1, clarificationNeeded: false, preferences: emptyPreferenceState, changes: emptyPreferenceState, summary: "Customer requested an undo.", preferenceState: savedState, sessionState, assistantReply: "I’ve undone the most recent configuration change.", resolvedBy: "local_session_command" });
+  }
+  if (/^(?:start over|reset|reset build|clear my build)[!.\s]*$/.test(message)) {
+    const resetState = emptySession();
+    sessions.set(sessionId, resetState);
+    return NextResponse.json({ intent: "reset", relevant: true, confidence: 1, clarificationNeeded: false, preferences: emptyPreferenceState, changes: emptyPreferenceState, summary: "Customer reset the build.", preferenceState: emptyPreferenceState, sessionState: resetState, assistantReply: "I’ve reset the build and the saved conversation preferences. What would you like in your Volvo?", resolvedBy: "local_session_command" });
+  }
+
   const discovery = groundedDiscovery(message, normalizedPowertrain);
   if (discovery) {
     sessionState.lastResults = discovery.matches;
@@ -471,6 +480,31 @@ export async function POST(request: Request) {
   }
 
   const referenceMessage = message.toLowerCase();
+  const asksToConfigureCheapest = /\b(?:pick|choose|select|configure|build|take)\b.*\b(?:the )?(?:cheapest|lowest(?:[- ]priced)?|most affordable)\b/i.test(message);
+  if (asksToConfigureCheapest) {
+    // Prefer the customer's current shortlist or comparison. Only fall back
+    // to the full catalogue when they have not yet explored any models.
+    const source = sessionState.activeComparison.length
+      ? sessionState.activeComparison
+      : sessionState.lastResults.length
+        ? sessionState.lastResults
+        : volvoUkModels;
+    const selected = [...source].sort((left, right) => left.price - right.price)[0];
+    if (selected) {
+      sessionState.activeConfig = selected.id;
+      sessionState.activeComparison = [];
+      sessionState.lastResults = [selected];
+      const changes = { ...emptyPreferenceState, model: selected.id, pricePreference: "lowest" as const };
+      const preferenceState = mergePreferenceState(savedState, changes);
+      return NextResponse.json({
+        intent: "show_model", relevant: true, confidence: 1, clarificationNeeded: false,
+        preferences: changes, changes, summary: `Configured the lowest-priced model: ${selected.name}.`,
+        preferenceState, sessionState,
+        assistantReply: `I’ve selected the lowest-priced ${source === volvoUkModels ? "Volvo UK starting point" : "option from your shortlist"}: ${selected.name}, from £${selected.price.toLocaleString("en-GB")}. It is now open in the configurator.`,
+        recommendations: [selected], toolUsed: "configure_car", resolvedBy: "local_lowest_price_selection",
+      });
+    }
+  }
   const comparisonAttribute = comparisonAttributeFor(message);
   const isComparativeQuestion = /\b(which|better|best|compare|difference|versus|vs\.?)\b/i.test(message);
   const hasAutomaticShortlistCriteria = /\b(two|2|cheap|cheapest|affordable|lowest|expensive|premium|highest|electric|hybrid|small|medium|large|suv|estate|saloon|seats?)\b/i.test(message);
