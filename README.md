@@ -19,12 +19,11 @@ Open `http://localhost:3000`, then select **Start configuring**.
 4. Set the deployment to private or password-protected for internal team review.
 
 Before a public release, replace the fictional `X5 Electric` catalogue, add brand-approved imagery/copy, and complete the Phase 2 AI integration using a server-side API key.
-# AI configurator API prototype
+# Conversational assistant (Claude)
 
-The server-backed prototype is available at `/configure` when the Next.js app is running.
+The chat on `/configure` is powered by Claude through `POST /api/chat`.
 
-1. Copy `.env.local.example` to `.env.local`.
-2. Set `OPENAI_API_KEY` locally. Never use `NEXT_PUBLIC_` for this key and do not place it in the standalone HTML demo.
-3. Run `pnpm dev` and open `http://localhost:3000/configure`.
+1. Copy `.env.local.example` to `.env.local` and set `ANTHROPIC_API_KEY`. Never use `NEXT_PUBLIC_` for this key.
+2. Run `pnpm dev` and open `http://localhost:3000/configure`.
 
-`POST /api/interpret` sends a customer message to the OpenAI Responses API and returns structured intent, preferences and confidence. The UI displays the extraction but keeps configuration changes under the local validation engine.
+Claude runs the conversation and calls tools for every fact and change: `search_cars`, `compare_cars`, `update_build`, `build_action` and `suggest_replies`. Every build change goes through `lib/configEngine.ts`, so the assistant cannot create an invalid configuration. Replies stream to the browser as newline-delimited JSON events.

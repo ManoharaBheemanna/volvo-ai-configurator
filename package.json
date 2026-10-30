@@ -1,7 +1,24 @@
 {
   "name": "ai-car-configurator-mvp",
   "private": true,
-  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
-  "dependencies": { "next": "16.3.4", "react": "19.2.8", "react-dom": "19.2.8" },
-  "devDependencies": { "@types/node": "22.15.3", "@types/react": "19.2.7", "@types/react-dom": "19.2.3", "autoprefixer": "10.4.21", "postcss": "8.5.3", "tailwindcss": "3.4.17", "typescript": "5.8.3" }
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "autoprefixer": "10.4.21",
+    "postcss": "8.5.3",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.8.3"
+  }
 }
