@@ -19,11 +19,16 @@ Open `http://localhost:3000`, then select **Start configuring**.
 4. Set the deployment to private or password-protected for internal team review.
 
 Before a public release, replace the fictional `X5 Electric` catalogue, add brand-approved imagery/copy, and complete the Phase 2 AI integration using a server-side API key.
-# Conversational assistant (Claude)
+# Conversational assistant
 
-The chat on `/configure` is powered by Claude through `POST /api/chat`.
+The chat on `/configure` is served by `POST /api/chat`. It uses Claude when `ANTHROPIC_API_KEY` is set, and otherwise a free local model through Ollama.
 
-1. Copy `.env.local.example` to `.env.local` and set `ANTHROPIC_API_KEY`. Never use `NEXT_PUBLIC_` for this key.
-2. Run `pnpm dev` and open `http://localhost:3000/configure`.
+**Free, local (Ollama):**
 
-Claude runs the conversation and calls tools for every fact and change: `search_cars`, `compare_cars`, `update_build`, `build_action` and `suggest_replies`. Every build change goes through `lib/configEngine.ts`, so the assistant cannot create an invalid configuration. Replies stream to the browser as newline-delimited JSON events.
+1. Install Ollama from https://ollama.com and start it.
+2. Run `ollama pull qwen2.5:7b` (about 5 GB; needs roughly 8 GB RAM). On a weaker laptop use `qwen2.5:3b` and set `OLLAMA_MODEL=qwen2.5:3b` in `.env.local`.
+3. Run `pnpm dev` and open `http://localhost:3000/configure`.
+
+**Claude (paid, better answers):** copy `.env.local.example` to `.env.local` and set `ANTHROPIC_API_KEY`. Never use `NEXT_PUBLIC_` for it.
+
+Both providers share the same tools in `lib/assistant.ts`: `search_cars`, `compare_cars`, `update_build`, `build_action` and `suggest_replies`. Every build change goes through `lib/configEngine.ts`, so the assistant cannot create an invalid configuration. Replies stream to the browser as newline-delimited JSON events.

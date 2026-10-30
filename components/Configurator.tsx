@@ -1,12 +1,9 @@
 "use client";
 
-import type Anthropic from "@anthropic-ai/sdk";
 import { useState } from "react";
-import type { ChatEvent } from "../app/api/chat/route";
+import type { ChatEvent } from "../lib/assistant";
 import { catalog, Config, defaultConfig, find, Item } from "../lib/catalog";
 import { normalizeConfigForModel, total, validateItem } from "../lib/configEngine";
-
-type ApiMessage = Anthropic.Beta.BetaMessageParam;
 
 type ComparisonCar = {
   id: string;
@@ -165,7 +162,7 @@ function ChatPanel({
     },
   ]);
   // Full API history (tool calls and results included), returned by the server after each turn.
-  const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
+  const [apiMessages, setApiMessages] = useState<unknown[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>(STARTER_REPLIES);
   const [loading, setLoading] = useState(false);
 
