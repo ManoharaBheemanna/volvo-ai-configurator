@@ -49,10 +49,15 @@ export async function ollamaChat(history: unknown[], text: string, start: Config
         }
       }
       messages.push(reply);
-      if (!reply.tool_calls?.length) break;
+      if (!reply.tool_calls?.length) {
+        console.log(`[assistant] replied without tools: ${reply.content.slice(0, 120)}`);
+        break;
+      }
 
       for (const call of reply.tool_calls) {
-        const { result } = runTool(call.function.name, call.function.arguments ?? {}, state, emit);
+        const args = typeof call.function.arguments === "string" ? JSON.parse(call.function.arguments) : call.function.arguments ?? {};
+        const { result } = runTool(call.function.name, args, state, emit);
+        console.log(`[assistant] ${call.function.name}`, JSON.stringify(args), "->", JSON.stringify(result));
         messages.push({ role: "tool", tool_name: call.function.name, content: JSON.stringify(result) });
       }
     }

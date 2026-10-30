@@ -43,7 +43,7 @@ How to talk:
 Facts and actions:
 - Never state a price, range, battery size, seat count or charging speed that did not come from a tool result in this conversation. If a figure is null, say it is not published in this prototype.
 - Use search_cars to find or rank models and compare_cars when the customer weighs two or more models.
-- Use update_build for every change to the build. The configurator enforces the rules; if it rejects a change, explain why in simple terms and offer the closest valid alternative.
+- Use update_build for every change to the build, passing catalogue ids. Never say a change is made unless update_build listed it as applied. The configurator enforces the rules; if it rejects a change, explain why in simple terms and offer the closest valid alternative.
 - Use build_action when the customer wants to go to checkout, undo the last change, or start over.
 - Prices are indicative. Finance, availability and ordering need Volvo's live systems; say so if asked.
 - If the customer goes off-topic, steer back politely.
@@ -83,23 +83,33 @@ function searchCars(input: Record<string, unknown>) {
   return { count: matches.length, cars: matches };
 }
 
+// Local models often send display names ("Fjord Blue", "Volvo EX60") instead of ids.
+const slug = (value: string) => value.toLowerCase().replace(/^volvo\s+/, "").replace(/["”]/g, "").trim().replace(/\s+/g, "-");
+function resolve<T extends { id: string; name: string }>(group: T[], value: string) {
+  const key = slug(value);
+  return group.find((item) => item.id === key || slug(item.name) === key) ?? group.find((item) => slug(item.name).includes(key) || key.includes(item.id));
+}
+const list = (value: unknown) => (typeof value === "string" ? value.split(",") : strList(value)).map((entry) => entry.trim()).filter(Boolean);
+
 function updateBuild(input: Record<string, unknown>, start: Config) {
   let config = { ...start, options: [...start.options] };
   const applied: string[] = [], rejected: { item: string; reason: string }[] = [];
-  const modelId = str(input.model);
-  if (modelId) {
-    const model = catalog.models.find((entry) => entry.id === modelId.replace("-hybrid", ""));
+  const modelValue = str(input.model);
+  if (modelValue) {
+    const model = resolve(catalog.models, modelValue.replace(/-hybrid$/i, ""));
     if (model) {
       config = normalizeConfigForModel({ ...config, model: model.id });
       applied.push(model.name);
-    } else rejected.push({ item: modelId, reason: "Unknown model." });
+    } else rejected.push({ item: modelValue, reason: "Unknown model." });
   }
   const setSingle = (key: "trim" | "color" | "wheels", group: Item[]) => {
-    const id = str(input[key]);
-    if (!id) return;
-    const item = find(group, id), next = { ...config, [key]: id };
+    const value = str(input[key]);
+    if (!value) return;
+    const item = resolve(group, value);
+    if (!item) return void rejected.push({ item: value, reason: "Not in the catalogue." });
+    const next = { ...config, [key]: item.id };
     const check = validateItem(item, next);
-    if (!check.valid || !item) return void rejected.push({ item: item?.name ?? id, reason: check.reason ?? "Not available." });
+    if (!check.valid) return void rejected.push({ item: item.name, reason: check.reason ?? "Not available." });
     // A trim change can invalidate wheels and options that needed the old trim.
     config = key === "trim" ? normalizeConfigForModel(next) : next;
     applied.push(item.name);
@@ -107,19 +117,24 @@ function updateBuild(input: Record<string, unknown>, start: Config) {
   setSingle("trim", catalog.trims);
   setSingle("color", catalog.colors);
   setSingle("wheels", catalog.wheels);
-  for (const id of strList(input.removeOptions)) {
-    if (config.options.includes(id)) {
-      config.options = config.options.filter((option) => option !== id);
-      applied.push(`removed ${find(catalog.options, id)?.name ?? id}`);
+  for (const value of list(input.removeOptions)) {
+    const item = resolve(catalog.options, value);
+    if (item && config.options.includes(item.id)) {
+      config.options = config.options.filter((option) => option !== item.id);
+      applied.push(`removed ${item.name}`);
     }
   }
-  for (const id of strList(input.addOptions)) {
-    const item = find(catalog.options, id);
-    if (config.options.includes(id)) continue;
+  for (const value of list(input.addOptions)) {
+    const item = resolve(catalog.options, value);
+    if (!item) {
+      rejected.push({ item: value, reason: "Not in the catalogue." });
+      continue;
+    }
+    if (config.options.includes(item.id)) continue;
     const check = validateItem(item, config);
-    if (!check.valid || !item) rejected.push({ item: item?.name ?? id, reason: check.reason ?? "Not available." });
+    if (!check.valid) rejected.push({ item: item.name, reason: check.reason ?? "Not available." });
     else {
-      config.options.push(id);
+      config.options.push(item.id);
       applied.push(`added ${item.name}`);
     }
   }
