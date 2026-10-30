@@ -1,4 +1,4 @@
-import { Config } from "./catalog";
+import { catalog, Config } from "./catalog";
 import { buildSummary, ChatEvent, MAX_TOOL_ROUNDS, runTool, SYSTEM, toolSpecs } from "./assistant";
 
 // Free local model through Ollama (https://ollama.com) running on the same machine.
@@ -30,6 +30,18 @@ const CHAT_SYSTEM = `${SYSTEM}
 
 In this setup the configurator applies build changes for you before you reply. Never claim a change unless a "Build update result" lists it as applied.`;
 
+// Backstop for weak extraction: a short reply like "ex60" or "black" that names
+// exactly one catalogue model or colour is applied directly.
+function directMentions(text: string) {
+  const lower = text.toLowerCase();
+  const found: Record<string, string> = {};
+  const models = catalog.models.filter((model) => new RegExp(`\\b${model.id}\\b`).test(lower));
+  if (models.length === 1) found.model = models[0].id;
+  const colors = catalog.colors.filter((color) => color.name.toLowerCase().split(" ").some((word) => new RegExp(`\\b${word}\\b`).test(lower)));
+  if (colors.length === 1) found.color = colors[0].id;
+  return found;
+}
+
 async function extractChanges(messages: OllamaMessage[]) {
   const response = await fetch(`${BASE_URL}/api/chat`, {
     method: "POST",
@@ -48,7 +60,7 @@ export async function ollamaChat(history: unknown[], text: string, start: Config
     { role: "user", content: `[Current build: ${JSON.stringify(buildSummary(state.config))}]\n${text}` },
   ];
   try {
-    const changes = await extractChanges(messages);
+    const changes = { ...(await extractChanges(messages)), ...directMentions(text) };
     console.log("[assistant] extracted", JSON.stringify(changes));
     const notes: string[] = [];
     const { action, ...update } = changes;
