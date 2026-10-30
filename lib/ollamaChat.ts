@@ -68,7 +68,10 @@ export async function ollamaChat(history: unknown[], text: string, start: Config
       const { result } = runTool("update_build", update, state, emit);
       notes.push(`Build update result: ${JSON.stringify(result)}`);
     }
-    if (action === "checkout" || action === "undo" || action === "reset") {
+    // Small models often pick an action by mistake, which jumps the customer to
+    // the order page or wipes the build, so the message must clearly ask for it.
+    const actionWords = { checkout: /\b(checkout|check out|order|next step|buy|purchase|finance)\b/i, undo: /\b(undo|go back|revert|previous)\b/i, reset: /\b(reset|start over|start again|clear)\b/i };
+    if ((action === "checkout" || action === "undo" || action === "reset") && actionWords[action].test(text)) {
       runTool("build_action", { action }, state, emit);
       notes.push(`Action done: ${action}.`);
     }
