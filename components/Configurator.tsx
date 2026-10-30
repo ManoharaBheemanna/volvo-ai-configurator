@@ -1,44 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import type { ChatEvent } from "../lib/assistant";
 import { catalog, Config, defaultConfig, find, Item } from "../lib/catalog";
 import { normalizeConfigForModel, total, validateItem } from "../lib/configEngine";
-
-type PreferenceState = {
-  seats: number | null;
-  budgetGbp: number | null;
-  powertrain: string | null;
-  colour: string | null;
-  driving: string | null;
-  charging: string | null;
-  model: string | null;
-  pricePreference: "lowest" | "highest" | null;
-};
-
-type Interpretation = {
-  intent: string;
-  relevant: boolean;
-  confidence: number;
-  summary: string;
-  assistantReply?: string;
-  clarificationQuestion?: string | null;
-  preferenceState?: PreferenceState;
-  recommendations?: Array<{
-    id?: string;
-    name: string;
-    price: number;
-    rangeMiles?: number | null;
-    batteryKwh?: number | null;
-    chargingSpeedKw?: number | null;
-  }>;
-  configurationChanges?: {
-    trim?: string;
-    color?: string;
-    wheels?: string;
-    addOptions?: string[];
-    removeOptions?: string[];
-  };
-};
 
 type ComparisonCar = {
   id: string;
@@ -178,128 +143,72 @@ function ComparisonTable({ cars }: { cars: ComparisonCar[] }) {
   );
 }
 
-function applyConfigurationChanges(changes: Interpretation["configurationChanges"]) {
-  if (!changes) return;
-  const clickChoice = (id: string, group: Item[]) => {
-    const label = find(group, id)?.name;
-    const button = label
-      ? (Array.from(document.querySelectorAll("button")).find((element) =>
-          element.textContent?.trim().startsWith(label),
-        ) as HTMLButtonElement | undefined)
-      : undefined;
-    button?.click();
-  };
-  if (changes.trim) clickChoice(changes.trim, catalog.trims);
-  if (changes.color) clickChoice(changes.color, catalog.colors);
-  window.setTimeout(() => {
-    if (changes.wheels) clickChoice(changes.wheels, catalog.wheels);
-    for (const id of changes.addOptions || []) {
-      const label = find(catalog.options, id)?.name;
-      const button = label
-        ? (Array.from(document.querySelectorAll("button")).find((element) =>
-            element.textContent?.trim().startsWith(label),
-          ) as HTMLButtonElement | undefined)
-        : undefined;
-      if (button && !button.className.includes("bg-stone-950")) button.click();
-    }
-    for (const id of changes.removeOptions || []) {
-      const label = find(catalog.options, id)?.name;
-      const button = label
-        ? (Array.from(document.querySelectorAll("button")).find((element) =>
-            element.textContent?.trim().startsWith(label),
-          ) as HTMLButtonElement | undefined)
-        : undefined;
-      if (button?.className.includes("bg-stone-950")) button.click();
-    }
-  }, 0);
-}
+const STARTER_REPLIES = ["I need a family electric car", "Show me the cheapest SUV", "Compare EX40 and EX60", "I need seven seats"];
 
 function ChatPanel({
-  onInterpret,
-  onNextStep,
-  onUndo,
-  onReset,
+  config,
+  onConfig,
+  onAction,
 }: {
-  onInterpret: (result: Interpretation) => void;
-  onNextStep: () => void;
-  onUndo: () => void;
-  onReset: () => void;
+  config: Config;
+  onConfig: (config: Config, notice: string) => void;
+  onAction: (action: "checkout" | "undo" | "reset") => void;
 }) {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
-      text: "Tell me what you need and I’ll recommend a Volvo Cars UK model, then help you configure it.",
+      text: "Hi! Tell me a bit about how you'll use your next car and I'll recommend a Volvo, then help you configure it.",
     },
   ]);
-  const [preferenceState, setPreferenceState] = useState<PreferenceState>({
-    seats: null,
-    budgetGbp: null,
-    powertrain: null,
-    colour: null,
-    driving: null,
-    charging: null,
-    model: null,
-    pricePreference: null,
-  });
-  const [sessionId] = useState(() => crypto.randomUUID());
+  // Full API history (tool calls and results included), returned by the server after each turn.
+  const [apiMessages, setApiMessages] = useState<unknown[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>(STARTER_REPLIES);
   const [loading, setLoading] = useState(false);
+
+  const updateLast = (change: (entry: ChatMessage) => ChatMessage) =>
+    setMessages((current) => [...current.slice(0, -1), change(current[current.length - 1])]);
+
+  function handle(event: ChatEvent) {
+    if (event.type === "text") updateLast((entry) => ({ ...entry, text: entry.text + event.text }));
+    else if (event.type === "comparison") updateLast((entry) => ({ ...entry, comparison: event.cars }));
+    else if (event.type === "config") onConfig(event.config, event.notice);
+    else if (event.type === "suggestions") setSuggestions(event.replies);
+    else if (event.type === "action") onAction(event.action);
+    else if (event.type === "done") setApiMessages(event.messages);
+    else if (event.type === "error") updateLast((entry) => ({ ...entry, text: entry.text ? `${entry.text}\n\n${event.message}` : event.message }));
+  }
 
   async function send(draft = message) {
     const value = draft.trim();
     if (!value || loading) return;
-    const conversation = [...messages, { role: "user" as const, text: value }];
     setMessage("");
-    setMessages(conversation);
+    setSuggestions([]);
+    setMessages((current) => [...current, { role: "user", text: value }, { role: "assistant", text: "" }]);
     setLoading(true);
 
     try {
-      const response = await fetch("/api/interpret", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: value,
-          sessionId,
-          conversation,
-          profile: {
-            market: "Volvo Cars UK",
-            currentConfiguration: "Volvo EX40 prototype configuration",
-            preferenceState,
-          },
-        }),
+        body: JSON.stringify({ messages: apiMessages, message: value, config }),
       });
-      const result = (await response.json()) as Interpretation;
-      if (!response.ok) throw new Error(result.assistantReply || "Could you rephrase that?");
-      if (result.preferenceState) setPreferenceState(result.preferenceState);
-      if (result.intent === "next_step") onNextStep();
-      if (result.intent === "undo") onUndo();
-      if (result.intent === "reset") onReset();
-      applyConfigurationChanges(result.configurationChanges);
-
-      const fallback = result.relevant
-        ? result.summary
-        : "Could you rephrase that in terms of a Volvo Cars UK model or configuration?";
-      const reply =
-        (result.assistantReply || fallback) +
-        (result.clarificationQuestion ? " " + result.clarificationQuestion : "");
-      const comparison =
-        result.intent === "compare" && result.recommendations && result.recommendations.length >= 2
-          ? result.recommendations.map((car) => ({
-              id: car.id || car.name,
-              name: car.name,
-              price: car.price,
-              rangeMiles: car.rangeMiles ?? null,
-              batteryKwh: car.batteryKwh ?? null,
-              chargingSpeedKw: car.chargingSpeedKw ?? null,
-            }))
-          : undefined;
-      setMessages((current) => [...current, { role: "assistant", text: reply, comparison }]);
-      onInterpret(result);
+      if (!response.ok || !response.body) {
+        const failure = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(failure?.error || "The assistant is unavailable right now. Please try again.");
+      }
+      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = "";
+      for (;;) {
+        const { value: chunk, done } = await reader.read();
+        if (done) break;
+        buffer += chunk;
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) if (line.trim()) handle(JSON.parse(line) as ChatEvent);
+      }
     } catch (error) {
-      setMessages((current) => [
-        ...current,
-        { role: "assistant", text: error instanceof Error ? error.message : "Could you rephrase that?" },
-      ]);
+      handle({ type: "error", message: error instanceof Error ? error.message : "Something went wrong." });
     } finally {
       setLoading(false);
     }
@@ -311,43 +220,25 @@ function ChatPanel({
         <h2 className="font-semibold">Configurator assistant</h2>
         <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-800">Volvo UK assistant</span>
       </div>
-      <div className="max-h-80 space-y-3 overflow-y-auto pr-1 text-sm">
+      <div className="max-h-96 space-y-3 overflow-y-auto pr-1 text-sm">
         {messages.map((entry, index) => (
           <div
             key={index}
             className={"max-w-[90%] rounded-xl p-3 " + (entry.role === "user" ? "ml-auto bg-stone-950 text-white" : "bg-stone-100 text-stone-950")}
           >
-            <p>{entry.text}</p>
+            <p className="whitespace-pre-line">{entry.text || (loading && index === messages.length - 1 ? "…" : "")}</p>
             {entry.role === "assistant" && entry.comparison ? <ComparisonTable cars={entry.comparison} /> : null}
           </div>
         ))}
-        {loading ? <div className="max-w-[90%] rounded-xl bg-stone-100 p-3 text-stone-500">Looking up Volvo Cars UK options…</div> : null}
       </div>
-      <div className="mt-4 rounded-xl border border-dashed border-stone-200 p-3">
-        <p className="text-xs font-bold tracking-[.14em] text-stone-500">START WITH A NEED OR CONFIGURE DIRECTLY</p>
+      {suggestions.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
-          {["I need a family electric Volvo", "Show the cheapest SUV", "Compare EX40 and EX60", "I need seven seats"].map((suggestion) => (
+          {suggestions.map((suggestion) => (
             <button key={suggestion} onClick={() => send(suggestion)} disabled={loading} className="rounded-full border border-stone-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-stone-700 hover:border-stone-500 disabled:opacity-40">{suggestion}</button>
           ))}
         </div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {["Choose Ultra trim", "Make it Fjord Blue", "Add panoramic roof", "Take me to the next step"].map((suggestion) => (
-            <button key={suggestion} onClick={() => send(suggestion)} disabled={loading} className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-left text-xs font-medium text-stone-700 hover:border-stone-500 disabled:opacity-40">{suggestion}</button>
-          ))}
-        </div>
-      </div>
-      {Object.values(preferenceState).some(Boolean) ? (
-        <div className="mt-3 rounded-xl bg-stone-50 p-3 text-xs text-stone-600">
-          <span className="font-bold tracking-[.12em] text-stone-500">WHAT I’VE UNDERSTOOD</span>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {preferenceState.model ? <span className="rounded-full bg-white px-2 py-1">Model: {preferenceState.model.toUpperCase()}</span> : null}
-            {preferenceState.seats ? <span className="rounded-full bg-white px-2 py-1">{preferenceState.seats} seats</span> : null}
-            {preferenceState.powertrain ? <span className="rounded-full bg-white px-2 py-1">{preferenceState.powertrain.replaceAll("_", " ")}</span> : null}
-            {preferenceState.pricePreference ? <span className="rounded-full bg-white px-2 py-1">{preferenceState.pricePreference} price</span> : null}
-          </div>
-        </div>
       ) : null}
-      <div className="mt-5 flex gap-2">
+      <div className="mt-4 flex gap-2">
         <input
           value={message}
           onChange={(event) => setMessage(event.target.value)}
@@ -558,18 +449,9 @@ export function Configurator() {
         <div className="space-y-6">
           <CarVisual config={config} />
           <ChatPanel
-            onInterpret={(result) => {
-              if (result.intent === "undo" || result.intent === "reset") return;
-              const selectedModel = result.preferenceState?.model;
-              if (selectedModel && catalog.models.some((model) => model.id === selectedModel)) {
-                updateModel(selectedModel);
-              } else if (result.summary) {
-                setNotice("AI understood: " + result.summary + " (" + Math.round(result.confidence * 100) + "% confidence). Review before applying any change.");
-              }
-            }}
-            onNextStep={() => setStage("order")}
-            onUndo={undo}
-            onReset={resetBuild}
+            config={config}
+            onConfig={commit}
+            onAction={(action) => (action === "checkout" ? setStage("order") : action === "undo" ? undo() : resetBuild())}
           />
           <section className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="mb-5">
